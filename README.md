@@ -3,8 +3,8 @@
 This resource sends a build status payload to bitbucket to signify the status of a commit.
 
 # Source Configuration
-* `username`: _Required_.
-* `password`: _Required_.
+* `username`: _Required_. Username to bitbucket account with access to the repository being worked with.
+* `password`: _Required_. Password (or App Password) to bitbucket account with access to the repository being worked with.
 
 # Behavior
 
@@ -15,9 +15,9 @@ This resource sends a build status payload to bitbucket to signify the status of
 ## `OUT`
 
 ### Parameters
-* `status`: _Required_.
-* `project`: _Required_.
-* `repository`: _Required_.
+* `status`: _Required_. Can be one of `[ 'INPROGRESS', 'SUCCESSFUL', 'FAILED', 'STOPPED' ]`
+* `project`: _Required_. Bitbucket repository owner (organization account slug, or user account slug).
+* `repository`: _Required_. Bitbucket repository slug.
 
 # Examples
 #### Resource Type:
