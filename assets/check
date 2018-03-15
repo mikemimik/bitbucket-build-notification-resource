@@ -1,0 +1,21 @@
+#! /usr/bin/env node
+'use strict';
+
+const readline = require('readline');
+
+const read = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+let output;
+
+read.on('line', (input) => {
+  output = [];
+  read.close();
+});
+
+read.on('close', () => {
+  console.log(JSON.stringify(output));
+  process.exit(0);
+});

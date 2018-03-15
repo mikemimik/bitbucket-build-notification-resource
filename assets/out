@@ -1,0 +1,99 @@
+#! /usr/bin/env node
+'use strict';
+
+const readline = require('readline');
+const exec = require('child_process').execSync;
+const req = require('sync-request');
+const fs = require('fs');
+
+const read = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+let output;
+
+read.on('line', (input) => {
+  console.error(input);
+  console.error('args:', process.argv);
+  console.error('env:', process.env);
+
+  const destination = process.argv[2];
+  // TESTING(mperrotte): listing out what's in the destination direcotry
+  const ls = fs.readdirSync(destination, 'utf8');
+  console.error('ls (destination):', ls);
+
+  const payload = JSON.parse(input);
+  const api = 'https://bitbucket.org/api/2.0';
+
+  // INFO(mperrotte): source values
+  const username = payload.source.username;
+  const password = payload.source.password;
+
+  // INFO(mperrotte): params values
+  const project = payload.params.project;
+  const repo = payload.params.repository;
+  const status = payload.params.status;
+
+  // NOTE(mperrotte): All validation for incoming props
+  if (!project) { console.error('[params.project]: not.configured'); process.exit(1); }
+  if (!repo) { console.error('[params.repo]: not.configured'); process.exit(1); }
+  if (!status) { console.error('[params.status]: not.configured'); process.exit(1); }
+  const statuses = [ 'INPROGRESS', 'SUCCESSFUL', 'FAILED', 'STOPPED' ];
+  if (!statuses.includes(status)) { console.error('[params.status]: not.valid'); process.exit(1); }
+
+  const gitCommit = `git -C ${destination}/${repo} rev-parse HEAD`;
+  const commit = exec(gitCommit, { encoding: 'utf8' }).trim();
+
+  if (!commit) { console.error(`Error fetching commit SHA: ${commit}`); process.exit(1); }
+
+  const auth = Buffer.from(`${username}:${password}`).toString('base64');
+  const statusUri = `${api}/repositories/${project}/${repo}/commit/${commit}/statuses/build`;
+
+  const url = process.env.ATC_EXTERNAL_URL;
+  const team = process.env.BUILD_TEAM_NAME;
+  const pipelineName = process.env.BUILD_PIPELINE_NAME;
+  const job = process.env.BUILD_JOB_NAME;
+  const build = process.env.BUILD_NAME;
+  const buildUrl = `${url}/teams/${team}/pipelines/${pipelineName}/jobs/${job}/builds/${build}`;
+
+  const postBody = {
+    state: status,
+    key: `${pipelineName}-${job}`,
+    name: `${job}-${build}`,
+    url: buildUrl,
+    description: `commit sha: ${commit}`
+  };
+
+  const res = req(
+    'POST',
+    `${statusUri}`,
+    {
+      headers: {
+        Authorization: `Basic ${auth}`
+      },
+      json: postBody
+    }
+  );
+  const data = JSON.parse(res.getBody());
+
+  console.error('statusCode:', res.statusCode);
+
+  if (res.statusCode >= 300) { console.error(data); process.exit(1); }
+
+  console.error(data);
+
+  output = {
+    version: {
+      ref: commit,
+      state: status
+    }
+  };
+  console.error(output);
+  read.close();
+});
+
+read.on('close', () => {
+  console.log(JSON.stringify(output));
+  process.exit(0);
+});
